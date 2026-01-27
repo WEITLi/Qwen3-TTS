@@ -25,3 +25,4 @@ env/
 pretrained_models/
 examples/output/
 output/
+data/
