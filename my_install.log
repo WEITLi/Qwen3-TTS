@@ -1,0 +1,7 @@
+nohup: ignoring input
+Resolved 30 packages in 757ms
+   Building flash-attn==2.8.3
+      Built flash-attn==2.8.3
+Prepared 1 package in 74m 01s
+Installed 1 package in 82ms
+ + flash-attn==2.8.3

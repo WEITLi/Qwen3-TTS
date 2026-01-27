@@ -1,0 +1,24 @@
+{"key":"serena_chinese_1","text":"你到底想怎么样？能不能别再来烦我了！","language":"chinese","speaker":"serena","instruct":"用极其愤怒和不耐烦的语气说。"}
+{"key":"serena_chinese_2","text":"我以为...我们至少还能是朋友...没想到连这个都变成了奢望。","language":"chinese","speaker":"serena","instruct":"以极度悲伤、带着明显哭腔的语气，用较小的音量缓缓诉说，语速缓慢，仿佛每一个字都承载着沉重的痛楚，声音颤抖而压抑，吐字虽轻却清晰可辨，透出深藏心底的哀伤与无助。"}
+{"key":"serena_english_3","text":"This is absolutely unbelievable! I can't believe what I'm hearing.","language":"english","speaker":"serena","instruct":"Speak in a surprised and slightly excited tone."}
+{"key":"uncle_fu_chinese_1","text":"哈哈，这事儿办得漂亮！我就知道你小子有出息！","language":"chinese","speaker":"uncle_fu","instruct":"用爽朗、开怀大笑的语气说。"}
+{"key":"uncle_fu_chinese_2","text":"你听我说，这件事非同小可，你一定要小心，千万不能掉以轻心啊。","language":"chinese","speaker":"uncle_fu","instruct":"用严肃而低沉的语气，语速稍慢，带着关切和担忧，一字一句地叮嘱，声音中透出长辈的稳重和一丝不易察觉的紧张。"}
+{"key":"uncle_fu_japanese_3","text":"元気かい？たまには顔を見せに来なさい。","language":"japanese","speaker":"uncle_fu","instruct":"優しくて慈愛に満ちた口調で話してください。"}
+{"key":"vivian_chinese_1","text":"哦？是吗？那我可真是要谢谢你的‘好意’了。","language":"chinese","speaker":"vivian","instruct":"用略带嘲讽和不屑的语气说。"}
+{"key":"vivian_chinese_2","text":"快点！我们没时间了，再不走就真的来不及了！他们马上就要追上来了！","language":"chinese","speaker":"vivian","instruct":"用非常焦急、紧张的语气，语速飞快，声音压低但充满紧迫感，气息略显不稳，仿佛在紧急情况下催促他人。"}
+{"key":"vivian_korean_3","text":"정말 아름다워요. 이 순간을 영원히 기억하고 싶어요.","language":"korean","speaker":"vivian","instruct":"부드럽고 감탄하는 어조로 말하세요."}
+{"key":"aiden_english_1","text":"Guess what? I got the job! This is the best day ever!","language":"english","speaker":"aiden","instruct":"Speak in a very excited and energetic tone."}
+{"key":"aiden_english_2","text":"Sometimes, I just sit here and wonder... what if I had made a different choice back then? Would everything be different now?","language":"english","speaker":"aiden","instruct":"Speak in a calm, introspective, and slightly melancholic tone, with a slow pace and soft volume, as if lost in thought. Use natural pauses to convey a sense of reminiscence about the past."}
+{"key":"aiden_chinese_3","text":"你好，很高兴认识你，我们可以交个朋友吗？","language":"chinese","speaker":"aiden","instruct":"用友好、热情的语气说。"}
+{"key":"ono_anna_japanese_1","text":"あの…これ、よかったら受け取ってください…","language":"japanese","speaker":"ono_anna","instruct":"恥ずかしそうに、小声で話してください。"}
+{"key":"ono_anna_japanese_2","text":"もう迷いません。自分の信じる道を、まっすぐに進むだけです！","language":"japanese","speaker":"ono_anna","instruct":"断固として力強い口調で、中くらいの速さで話す。声はクリアで力強く、普段の弱さを捨て、疑う余地のない決意と意志を示す。"}
+{"key":"ono_anna_korean_3","text":"이 노래 정말 좋아요. 마음이 편안해져요.","language":"korean","speaker":"ono_anna","instruct":"부드럽고 즐거운 어조로 말하세요."}
+{"key":"sohee_korean_1","text":"와! 오늘 날씨 진짜 좋다! 같이 산책하러 갈래요?","language":"korean","speaker":"sohee","instruct":"활기차고 밝은 어조로 말하세요."}
+{"key":"sohee_korean_2","text":"제발... 제발 가지 마세요. 저 혼자서는 아무것도 할 수 없단 말이에요.","language":"korean","speaker":"sohee","instruct":"절박하고 애원하는 어조로, 목소리는 떨리고 울먹이며, 말의 속도는 때로는 빠르고 때로는 느리게, 절망과 무력감으로 가득 차 마치 마지막 지푸라기라도 잡으려는 듯이 말하세요."}
+{"key":"sohee_english_3","text":"I'm a little bit lost, could you please help me find the station?","language":"english","speaker":"sohee","instruct":"Speak in a polite and slightly anxious tone."}
+{"key":"dylan_chinese_1","text":"放心吧，这件事交给我，保证给你办得妥妥当当。","language":"chinese","speaker":"dylan","instruct":"用充满自信、轻松沉稳的语气说。"}
+{"key":"dylan_chinese_2","text":"就这样吧...我已经累了，不想再争了，什么都不重要了。","language":"chinese","speaker":"dylan","instruct":"用极度疲惫、心灰意冷的语气，语速缓慢，音量微弱，声音沙哑，仿佛耗尽了所有力气，带着深深的无力感和宿命感。"}
+{"key":"dylan_japanese_3","text":"お疲れ様です。今日の会議は長かったですね。","language":"japanese","speaker":"dylan","instruct":"冷静でプロフェッショナルな口調で話してください。"}
+{"key":"eric_chinese_1","text":"你可别逗我了，就我这身板，还挑战世界冠军？下辈子吧！","language":"chinese","speaker":"eric","instruct":"用风趣幽默、略带自嘲的语气说。"}
+{"key":"eric_chinese_2","text":"你以为你跑得掉吗？慢慢享受这最后的时光吧，因为我，很快就会找到你。","language":"chinese","speaker":"eric","instruct":"以冰冷、带有威胁性的语气，语速不疾不徐，音量不大但压迫感十足，吐字清晰，字与字之间带着一丝玩味的残忍，声音中不带任何感情。"}
+{"key":"eric_english_3","text":"Well, well, well. Look what we have here. I wasn't expecting to see you so soon.","language":"english","speaker":"eric","instruct":"Speak in a sarcastic and slightly threatening tone."}

@@ -32,7 +32,7 @@ def train():
     global target_speaker_embedding
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--init_model_path", type=str, default="Qwen/Qwen3-TTS-12Hz-1.7B-Base")
+    parser.add_argument("--init_model_path", type=str, default="..pretrained_models/Qwen3-TTS-12Hz-1.7B-Base")
     parser.add_argument("--output_model_path", type=str, default="output")
     parser.add_argument("--train_jsonl", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=2)
@@ -65,7 +65,7 @@ def train():
 
     num_epochs = args.num_epochs
     model.train()
-
+    # train loops and data load
     for epoch in range(num_epochs):
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(model):
@@ -78,7 +78,7 @@ def train():
                 attention_mask = batch['attention_mask']
                 codec_0_labels = batch['codec_0_labels']
                 codec_mask = batch['codec_mask']
-
+                # spk emb: use 【ref_mels】 音频特征-> spk meb
                 speaker_embedding = model.speaker_encoder(ref_mels.to(model.device).to(model.dtype)).detach()
                 if target_speaker_embedding is None:
                     target_speaker_embedding = speaker_embedding
@@ -96,7 +96,7 @@ def train():
                     codec_i_embedding = model.talker.code_predictor.get_input_embeddings()[i - 1](codec_ids[:, :, i])
                     codec_i_embedding = codec_i_embedding * codec_mask.unsqueeze(-1)
                     input_embeddings = input_embeddings + codec_i_embedding
-
+                # 4. forward and compute loss
                 outputs = model.talker(
                     inputs_embeds=input_embeddings[:, :-1, :],
                     attention_mask=attention_mask[:, :-1],
@@ -111,7 +111,7 @@ def train():
                 sub_talker_logits, sub_talker_loss = model.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
 
                 loss = outputs.loss + sub_talker_loss
-
+                # 5. update params
                 accelerator.backward(loss)
 
                 if accelerator.sync_gradients:
@@ -122,7 +122,7 @@ def train():
 
             if step % 10 == 0:
                 accelerator.print(f"Epoch {epoch} | Step {step} | Loss: {loss.item():.4f}")
-
+        # 6. save ckpts
         if accelerator.is_main_process:
             output_dir = os.path.join(args.output_model_path, f"checkpoint-epoch-{epoch}")
             shutil.copytree(MODEL_PATH, output_dir, dirs_exist_ok=True)
