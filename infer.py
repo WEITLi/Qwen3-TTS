@@ -7,7 +7,7 @@ from qwen_tts import Qwen3TTSModel
 def main():
     device = "cuda:0"
     tts = Qwen3TTSModel.from_pretrained(
-        "/data/Projects/Qwen3-TTS/exp/exp_l50/Qwen3-TTS_sft_2spk/checkpoint-epoch-1",
+        "/data/Projects/Qwen3-TTS/exp/exp_l50/Qwen3-TTS_sft_2spk_full/checkpoint-epoch-4",
         device_map=device,
         dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
@@ -23,7 +23,7 @@ def main():
 
     texts = ["其实我真的有发现，我是一个特别善于观察别人情绪的人。", "你是这样的人，我可是不信"]
     languages = ["Chinese", "Chinese"]
-    speakers = ["女郎", "青年男内向"]
+    speakers = ["女郎", "青少年男内向"]
     instructs = ["非常开心，刚开始很惊讶", "非常疑惑，用一种嘲讽的语气"]
 
 
@@ -40,7 +40,7 @@ def main():
     print(f"[CustomVoice Batch] time: {t1 - t0:.3f}s")
 
     for i, w in enumerate(wavs):
-        sf.write(f"./output/sft_2spk_avg_emb/infer_spk_emo_{i}.wav", w, sr)
+        sf.write(f"./output/sft_2spk_avg_emb/infer_full_e5_spk_{i}.wav", w, sr)
 
 
 if __name__ == "__main__":
