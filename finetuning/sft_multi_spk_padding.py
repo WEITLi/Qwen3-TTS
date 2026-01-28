@@ -20,7 +20,7 @@ import shutil
 
 import torch
 from accelerate import Accelerator
-from dataset import TTSDataset
+from dataset_multi_spk_padding import TTSDataset
 from qwen_tts.inference.qwen3_tts_model import Qwen3TTSModel
 from safetensors.torch import save_file
 from torch.optim import AdamW
@@ -35,10 +35,10 @@ def train():
     parser.add_argument("--init_model_path", type=str, default="..pretrained_models/Qwen3-TTS-12Hz-1.7B-Base")
     parser.add_argument("--output_model_path", type=str, default="output")
     parser.add_argument("--train_jsonl", type=str, required=True)
-    parser.add_argument("--batch_size", type=int, default=2)
+    parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=2e-5)
-    parser.add_argument("--num_epochs", type=int, default=3)
-    parser.add_argument("--speaker_name", type=str, default="speaker_test")
+    parser.add_argument("--num_epochs", type=int, default=10)
+    # parser.add_argument("--speaker_name", type=str, default="speaker_test")
     args = parser.parse_args()
 
     accelerator = Accelerator(gradient_accumulation_steps=1, mixed_precision="bf16")
@@ -54,7 +54,7 @@ def train():
 
     train_data = open(args.train_jsonl).readlines()
     train_data = [json.loads(line) for line in train_data]
-    dataset = TTSDataset(train_data, qwen3tts.processor, config)
+    dataset = TTSDataset(train_data, qwen3tts.processor, config, start_id=2861, max_id=3066)
     train_dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, collate_fn=dataset.collate_fn)
 
     optimizer = AdamW(qwen3tts.model.parameters(), lr=args.lr, weight_decay=0.01)
@@ -62,6 +62,9 @@ def train():
     model, optimizer, train_dataloader = accelerator.prepare(
         qwen3tts.model, optimizer, train_dataloader
     )
+    # [新增] 用于保存每个 ID 最新计算出的 Embedding，用于最后写入权重
+    # key: int (spk_id), value: torch.Tensor
+    learned_speaker_embeddings = {}
 
     num_epochs = args.num_epochs
     model.train()
@@ -78,18 +81,28 @@ def train():
                 attention_mask = batch['attention_mask']
                 codec_0_labels = batch['codec_0_labels']
                 codec_mask = batch['codec_mask']
+                spk_ids = batch['spk_ids'] # [新增] 从 batch 获取 IDs
+
                 # spk emb: use 【ref_mels】 音频特征-> spk meb
-                speaker_embedding = model.speaker_encoder(ref_mels.to(model.device).to(model.dtype)).detach()
-                
-                if target_speaker_embedding is None:
-                    target_speaker_embedding = speaker_embedding
+                speaker_embedding = model.speaker_encoder(ref_mels.to(model.device).to(model.dtype))
+                spk_emb_detached = speaker_embedding.detach()
+                # if target_speaker_embedding is None:
+                #     target_speaker_embedding = speaker_embedding
+                for i, spk_id in enumerate(spk_ids):
+                    # 获取当前样本的 ID (int)
+                    sid = spk_id.item()
+                    # 获取当前样本的 embedding (1, hidden_dim) -> (hidden_dim)
+                    semb = spk_emb_detached[i].squeeze(0).cpu() 
+                    learned_speaker_embeddings[sid] = semb
 
                 input_text_ids = input_ids[:, :, 0]
                 input_codec_ids = input_ids[:, :, 1]
 
                 input_text_embedding = model.talker.model.text_embedding(input_text_ids) * text_embedding_mask
                 input_codec_embedding = model.talker.model.codec_embedding(input_codec_ids) * codec_embedding_mask
-                input_codec_embedding[:, 6, :] = speaker_embedding
+                
+                # input_codec_embedding[:, 6, :] = speaker_embedding
+                input_codec_embedding[:, 6, :] = speaker_embedding.squeeze(1)
 
                 input_embeddings = input_text_embedding + input_codec_embedding
 
@@ -133,13 +146,22 @@ def train():
             with open(input_config_file, 'r', encoding='utf-8') as f:
                 config_dict = json.load(f)
             config_dict["tts_model_type"] = "custom_voice"
+            # [New]
             talker_config = config_dict.get("talker_config", {})
-            talker_config["spk_id"] = {
-                args.speaker_name: 3000
-            }
-            talker_config["spk_is_dialect"] = {
-                args.speaker_name: False
-            }
+
+            # 我们需要构建 {speaker_name: id} 写入 config
+            # 同时也构建 {speaker_name: is_dialect} (默认为 False)
+            spk_id_map = {}
+            spk_dialect_map = {}
+            
+            # 如果是 DDP，dataset 在其他进程可能不同步，但 mapping 逻辑是一致的 (只要数据顺序一致)
+            # 或者通过 accelerator.gather 来收集，但这里简化处理，假设数据完全一致
+            for name, sid in dataset.speaker_map.items():
+                spk_id_map[name] = sid
+                spk_dialect_map[name] = False   # [尚未收集]
+                
+            talker_config["spk_id"] = spk_id_map
+            talker_config["spk_is_dialect"] = spk_dialect_map
             config_dict["talker_config"] = talker_config
 
             with open(output_config_file, 'w', encoding='utf-8') as f:
@@ -153,10 +175,24 @@ def train():
             for k in keys_to_drop:
                 del state_dict[k]
 
-            weight = state_dict['talker.model.codec_embedding.weight']
-            state_dict['talker.model.codec_embedding.weight'][3000] = target_speaker_embedding[0].detach().to(weight.device).to(weight.dtype)
+            # 确保 weight 存在且在 CPU 上 (上面已经 detach 到 cpu 了)
+            codec_embedding_weight = state_dict['talker.model.codec_embedding.weight']
+            
+            print(f"Saving embeddings for {len(learned_speaker_embeddings)} speakers...")
+            
+            for spk_id, emb_tensor in learned_speaker_embeddings.items():
+                if 2861 <= spk_id <= 3066: # 双重保险检查范围
+                    # 注意类型转换，保持和权重一致 (通常是 bf16 或 fp32)
+                    codec_embedding_weight[spk_id] = emb_tensor.to(codec_embedding_weight.dtype)
+                else:
+                    print(f"Skipping ID {spk_id} out of range [2861, 3066]")
+
+            # 覆盖回去
+            state_dict['talker.model.codec_embedding.weight'] = codec_embedding_weight
+            
             save_path = os.path.join(output_dir, "model.safetensors")
             save_file(state_dict, save_path)
+            accelerator.print(f"Model saved to {save_path} with updated speaker embeddings.")
 
 if __name__ == "__main__":
     train()

@@ -26,3 +26,7 @@ pretrained_models/
 examples/output/
 output/
 data/
+exp/
+# private
+finetuning/tools/find_csv.py
+finetuning/tools/prepare_jsonl.py

@@ -189,19 +189,19 @@ def main():
     parser.add_argument(
         "--model_path",
         type=str,
-        required=True,
+        default="/data/Projects/Qwen3-TTS/pretrained_models/Qwen3-TTS-12Hz-1.7B-Base",
         help="Path to pretrained Qwen3-TTS model"
     )
     parser.add_argument(
         "--train_jsonl",
         type=str,
-        required=True,
+        default="/data/Projects/Qwen3-TTS/data/finetune/train_2spk.jsonl",
         help="Path to training JSONL file"
     )
     parser.add_argument(
         "--output_path",
         type=str,
-        required=True,
+        default="/data/Projects/Qwen3-TTS/output",
         help="Output path for speaker embeddings .pt file"
     )
     parser.add_argument(
