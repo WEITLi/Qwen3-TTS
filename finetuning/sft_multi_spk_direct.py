@@ -170,11 +170,14 @@ def train():
             unwrapped_model = accelerator.unwrap_model(model)
             state_dict = {k: v.detach().to("cpu") for k, v in unwrapped_model.state_dict().items()}
 
-            # Remove speaker_encoder from state_dict (not needed for inference)
-            drop_prefix = "speaker_encoder"
-            keys_to_drop = [k for k in state_dict.keys() if k.startswith(drop_prefix)]
-            for k in keys_to_drop:
-                del state_dict[k]
+            # Keep speaker_encoder in state_dict for ICL support
+            # If you want to use ICL (In-Context Learning) with reference audio,
+            # you MUST keep the speaker_encoder in the checkpoint.
+            # Uncomment the lines below ONLY if you don't need ICL:
+            # drop_prefix = "speaker_encoder"
+            # keys_to_drop = [k for k in state_dict.keys() if k.startswith(drop_prefix)]
+            # for k in keys_to_drop:
+            #     del state_dict[k]
 
             # Build speaker ID mapping (starting from index 3000)
             spk_id_mapping = {}

@@ -52,28 +52,28 @@ def main():
     sf.write("qwen3_tts_test_custom_single.wav", wavs[0], sr)
 
     # -------- Batch (some empty instruct) --------
-    texts = ["其实我真的有发现，我是一个特别善于观察别人情绪的人。", "She said she would be here by noon."]
-    languages = ["Chinese", "English"]
-    speakers = ["Vivian", "Ryan"]
-    instructs = ["", "Very happy."]
+    # texts = ["其实我真的有发现，我是一个特别善于观察别人情绪的人。", "She said she would be here by noon."]
+    # languages = ["Chinese", "English"]
+    # speakers = ["Vivian", "Ryan"]
+    # instructs = ["", "Very happy."]
 
-    torch.cuda.synchronize()
-    t0 = time.time()
+    # torch.cuda.synchronize()
+    # t0 = time.time()
 
-    wavs, sr = tts.generate_custom_voice(
-        text=texts,
-        language=languages,
-        speaker=speakers,
-        instruct=instructs,
-        max_new_tokens=2048,
-    )
+    # wavs, sr = tts.generate_custom_voice(
+    #     text=texts,
+    #     language=languages,
+    #     speaker=speakers,
+    #     instruct=instructs,
+    #     max_new_tokens=2048,
+    # )
 
-    torch.cuda.synchronize()
-    t1 = time.time()
-    print(f"[CustomVoice Batch] time: {t1 - t0:.3f}s")
+    # torch.cuda.synchronize()
+    # t1 = time.time()
+    # print(f"[CustomVoice Batch] time: {t1 - t0:.3f}s")
 
-    for i, w in enumerate(wavs):
-        sf.write(f"qwen3_tts_test_custom_batch_{i}.wav", w, sr)
+    # for i, w in enumerate(wavs):
+    #     sf.write(f"qwen3_tts_test_custom_batch_{i}.wav", w, sr)
 
 
 if __name__ == "__main__":

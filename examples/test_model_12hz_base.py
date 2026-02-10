@@ -106,88 +106,88 @@ def main():
             ),
         )
 
-        # Case 1b: prompt single + synth single, via create_voice_clone_prompt
-        def _case1b():
-            prompt_items = tts.create_voice_clone_prompt(
-                ref_audio=ref_audio_single,
-                ref_text=ref_text_single,
-                x_vector_only_mode=xvec_only,
-            )
-            return tts.generate_voice_clone(
-                text=syn_text_single,
-                language=syn_lang_single,
-                voice_clone_prompt=prompt_items,
-                **common_gen_kwargs,
-            )
+        # # Case 1b: prompt single + synth single, via create_voice_clone_prompt
+        # def _case1b():
+        #     prompt_items = tts.create_voice_clone_prompt(
+        #         ref_audio=ref_audio_single,
+        #         ref_text=ref_text_single,
+        #         x_vector_only_mode=xvec_only,
+        #     )
+        #     return tts.generate_voice_clone(
+        #         text=syn_text_single,
+        #         language=syn_lang_single,
+        #         voice_clone_prompt=prompt_items,
+        #         **common_gen_kwargs,
+        #     )
 
-        run_case(
-            tts, OUT_DIR, f"case1_promptSingle_synSingle_promptThenGen_{mode_tag}",
-            _case1b,
-        )
+        # run_case(
+        #     tts, OUT_DIR, f"case1_promptSingle_synSingle_promptThenGen_{mode_tag}",
+        #     _case1b,
+        # )
 
-        # Case 2: prompt single + synth batch, direct
-        run_case(
-            tts, OUT_DIR, f"case2_promptSingle_synBatch_direct_{mode_tag}",
-            lambda: tts.generate_voice_clone(
-                text=syn_text_batch,
-                language=syn_lang_batch,
-                ref_audio=ref_audio_single,
-                ref_text=ref_text_single,
-                x_vector_only_mode=xvec_only,
-                **common_gen_kwargs,
-            ),
-        )
+        # # Case 2: prompt single + synth batch, direct
+        # run_case(
+        #     tts, OUT_DIR, f"case2_promptSingle_synBatch_direct_{mode_tag}",
+        #     lambda: tts.generate_voice_clone(
+        #         text=syn_text_batch,
+        #         language=syn_lang_batch,
+        #         ref_audio=ref_audio_single,
+        #         ref_text=ref_text_single,
+        #         x_vector_only_mode=xvec_only,
+        #         **common_gen_kwargs,
+        #     ),
+        # )
 
-        # Case 2b: prompt single + synth batch, via create_voice_clone_prompt
-        def _case2b():
-            prompt_items = tts.create_voice_clone_prompt(
-                ref_audio=ref_audio_single,
-                ref_text=ref_text_single,
-                x_vector_only_mode=xvec_only,
-            )
-            return tts.generate_voice_clone(
-                text=syn_text_batch,
-                language=syn_lang_batch,
-                voice_clone_prompt=prompt_items,
-                **common_gen_kwargs,
-            )
+        # # Case 2b: prompt single + synth batch, via create_voice_clone_prompt
+        # def _case2b():
+        #     prompt_items = tts.create_voice_clone_prompt(
+        #         ref_audio=ref_audio_single,
+        #         ref_text=ref_text_single,
+        #         x_vector_only_mode=xvec_only,
+        #     )
+        #     return tts.generate_voice_clone(
+        #         text=syn_text_batch,
+        #         language=syn_lang_batch,
+        #         voice_clone_prompt=prompt_items,
+        #         **common_gen_kwargs,
+        #     )
 
-        run_case(
-            tts, OUT_DIR, f"case2_promptSingle_synBatch_promptThenGen_{mode_tag}",
-            _case2b,
-        )
+        # run_case(
+        #     tts, OUT_DIR, f"case2_promptSingle_synBatch_promptThenGen_{mode_tag}",
+        #     _case2b,
+        # )
 
-        # Case 3: prompt batch + synth batch, direct
-        run_case(
-            tts, OUT_DIR, f"case3_promptBatch_synBatch_direct_{mode_tag}",
-            lambda: tts.generate_voice_clone(
-                text=syn_text_batch,
-                language=syn_lang_batch,
-                ref_audio=ref_audio_batch,
-                ref_text=ref_text_batch,
-                x_vector_only_mode=[xvec_only, xvec_only],
-                **common_gen_kwargs,
-            ),
-        )
+        # # Case 3: prompt batch + synth batch, direct
+        # run_case(
+        #     tts, OUT_DIR, f"case3_promptBatch_synBatch_direct_{mode_tag}",
+        #     lambda: tts.generate_voice_clone(
+        #         text=syn_text_batch,
+        #         language=syn_lang_batch,
+        #         ref_audio=ref_audio_batch,
+        #         ref_text=ref_text_batch,
+        #         x_vector_only_mode=[xvec_only, xvec_only],
+        #         **common_gen_kwargs,
+        #     ),
+        # )
 
-        # Case 3b: prompt batch + synth batch, via create_voice_clone_prompt
-        def _case3b():
-            prompt_items = tts.create_voice_clone_prompt(
-                ref_audio=ref_audio_batch,
-                ref_text=ref_text_batch,
-                x_vector_only_mode=[xvec_only, xvec_only],
-            )
-            return tts.generate_voice_clone(
-                text=syn_text_batch,
-                language=syn_lang_batch,
-                voice_clone_prompt=prompt_items,
-                **common_gen_kwargs,
-            )
+        # # Case 3b: prompt batch + synth batch, via create_voice_clone_prompt
+        # def _case3b():
+        #     prompt_items = tts.create_voice_clone_prompt(
+        #         ref_audio=ref_audio_batch,
+        #         ref_text=ref_text_batch,
+        #         x_vector_only_mode=[xvec_only, xvec_only],
+        #     )
+        #     return tts.generate_voice_clone(
+        #         text=syn_text_batch,
+        #         language=syn_lang_batch,
+        #         voice_clone_prompt=prompt_items,
+        #         **common_gen_kwargs,
+        #     )
 
-        run_case(
-            tts, OUT_DIR, f"case3_promptBatch_synBatch_promptThenGen_{mode_tag}",
-            _case3b,
-        )
+        # run_case(
+        #     tts, OUT_DIR, f"case3_promptBatch_synBatch_promptThenGen_{mode_tag}",
+        #     _case3b,
+        # )
 
 
 if __name__ == "__main__":

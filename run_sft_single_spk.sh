@@ -5,14 +5,20 @@ source /data/miniconda3/bin/activate qwen3-tts
 DEVICE="cuda:0"
 TOKENIZER_MODEL_PATH="./pretrained_models/Qwen3-TTS-Tokenizer-12Hz"
 INIT_MODEL_PATH="./pretrained_models/Qwen3-TTS-12Hz-1.7B-Base"
+# exp name
+expdir=exp/exp_l50
+expname='Qwen3-TTS_sft_nvlang_single_full-lr2ef6'
+mkdir -p ${expdir}/${expname}
 
-RAW_JSONL="./data/finetune/train_raw_full.jsonl"
-TRAIN_JSONL="./data/finetune/train_with_codes.jsonl"
-OUTPUT_DIR="./output/finetune"
+RAW_JSONL="./data/finetune/train_nvlang_full.jsonl"
+TRAIN_JSONL="./${expdir}/${expname}/train_with_codes.jsonl"
+OUTPUT_DIR="./${expdir}/${expname}"
+
+
 
 BATCH_SIZE=4
-LR=2e-5
-EPOCHS=20
+LR=2e-6
+EPOCHS=5
 SPEAKER_NAME="女郎"
 
 python finetuning/prepare_data.py \

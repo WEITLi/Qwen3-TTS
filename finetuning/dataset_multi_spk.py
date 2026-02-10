@@ -146,7 +146,7 @@ class TTSDataset(Dataset):
     def __getitem__(self, idx):
         item = self.data_list[idx]
 
-        audio_path  = item["audio"]
+        audio_path  = item["path"]
         text        = item["text"]
         audio_codes = item["audio_codes"]
         language    = item.get('language','Auto')

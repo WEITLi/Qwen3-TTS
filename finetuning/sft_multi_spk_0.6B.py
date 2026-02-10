@@ -20,7 +20,7 @@ import shutil
 
 import torch
 from accelerate import Accelerator
-from dataset_multi_speaker import TTSDataset  # Use multi-speaker dataset
+from dataset_multi_spk import TTSDataset  # Use multi-speaker dataset
 from qwen_tts.inference.qwen3_tts_model import Qwen3TTSModel
 from safetensors.torch import save_file
 from torch.optim import AdamW
@@ -33,7 +33,7 @@ def train():
     global speaker_embeddings_dict
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--init_model_path", type=str, default="..pretrained_models/Qwen3-TTS-12Hz-1.7B-Base")
+    parser.add_argument("--init_model_path", type=str, default="..pretrained_models/Qwen3-TTS-12Hz-0.6B-Base")
     parser.add_argument("--output_model_path", type=str, default="output")
     parser.add_argument("--train_jsonl", type=str, required=True)
     parser.add_argument("--speaker_embeddings_path", type=str, required=True,
@@ -43,7 +43,11 @@ def train():
     parser.add_argument("--num_epochs", type=int, default=3)
     args = parser.parse_args()
 
-    accelerator = Accelerator(gradient_accumulation_steps=4, mixed_precision="bf16", log_with="tensorboard")
+    # logging_dir = os.path.join(args.output_model_path, "logs")
+
+    accelerator = Accelerator(gradient_accumulation_steps=1, 
+                              mixed_precision="bf16", 
+                              )
 
     MODEL_PATH = args.init_model_path
 
@@ -101,7 +105,8 @@ def train():
                 input_text_ids = input_ids[:, :, 0]
                 input_codec_ids = input_ids[:, :, 1]
 
-                input_text_embedding = model.talker.model.text_embedding(input_text_ids) * text_embedding_mask
+                # input_text_embedding = model.talker.model.text_embedding(input_text_ids) * text_embedding_mask
+                input_text_embedding = model.talker.text_projection( model.talker.model.text_embedding(input_text_ids) ) * text_embedding_mask
                 input_codec_embedding = model.talker.model.codec_embedding(input_codec_ids) * codec_embedding_mask
                 input_codec_embedding[:, 6, :] = speaker_embedding
 
@@ -131,12 +136,14 @@ def train():
 
                 if accelerator.sync_gradients:
                     accelerator.clip_grad_norm_(model.parameters(), 1.0)
+                    
 
                 optimizer.step()
                 optimizer.zero_grad()
 
             if step % 10 == 0:
                 accelerator.print(f"Epoch {epoch} | Step {step} | Loss: {loss.item():.4f}")
+
         # 6. save ckpts
         if accelerator.is_main_process:
             output_dir = os.path.join(args.output_model_path, f"checkpoint-epoch-{epoch}")

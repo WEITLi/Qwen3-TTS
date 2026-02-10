@@ -165,7 +165,7 @@ def load_and_group_jsonl(jsonl_path: str) -> Dict[str, List[str]]:
             try:
                 data = json.loads(line)
                 speaker = data.get('speaker')
-                audio = data.get('audio')
+                audio = data.get('path')
                 
                 if not speaker:
                     print(f"  Warning: Line {line_num} missing 'speaker' field, skipping")

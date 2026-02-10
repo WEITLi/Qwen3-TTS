@@ -149,8 +149,8 @@ def train():
             # [New]
             talker_config = config_dict.get("talker_config", {})
 
-            # 我们需要构建 {speaker_name: id} 写入 config
-            # 同时也构建 {speaker_name: is_dialect} (默认为 False)
+            # 构建 {speaker_name: id} 写入 config
+            # 同时构建 {speaker_name: is_dialect} (默认为 False)
             spk_id_map = {}
             spk_dialect_map = {}
             

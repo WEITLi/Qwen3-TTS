@@ -15,9 +15,9 @@ from qwen_tts import Qwen3TTSModel
 
 def main():
     parser = argparse.ArgumentParser(description="Batch inference using Qwen3-TTS Base model with JSONL input")
-    parser.add_argument("--jsonl_path", type=str, default="/data/Projects/Qwen3-TTS/data/test_clone.jsonl", 
+    parser.add_argument("--jsonl_path", type=str, default="/data/Projects/Qwen3-TTS/data/test/plain.test_icl.jsonl", 
                         help="Path to JSONL input file containing clone data")
-    parser.add_argument("--output_dir", type=str, default="./output/output_clone-0.6B", 
+    parser.add_argument("--output_dir", type=str, default="./output/clone_1.7B-icl_plain_text", 
                         help="Output directory for generated audio files (default: ./output_clone)")
     parser.add_argument("--model_path", type=str, default=None, 
                         help="Path to Qwen3-TTS Base model (default: auto-detect)")
@@ -27,17 +27,17 @@ def main():
                         help="Data type for model (default: bfloat16)")
     parser.add_argument("--attn_implementation", type=str, default="flash_attention_2", 
                         help="Attention implementation (default: flash_attention_2)")
-    parser.add_argument("--max_new_tokens", type=int, default=2048, 
+    parser.add_argument("--max_new_tokens", type=int, default=256, 
                         help="Maximum number of new tokens to generate (default: 2048)")
     parser.add_argument("--x_vector_only_mode", type=bool, default=False, 
-                        help="Use x-vector only mode (ignores ref_text/ref_code)")
+                        help="True = Use x-vector only mode (ignores ref_text/ref_code)")
 
     args = parser.parse_args()
 
     # Set project root and model path
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if args.model_path is None:
-        MODEL_PATH = os.path.join(PROJECT_ROOT, "pretrained_models", "Qwen3-TTS-12Hz-0.6B-Base")
+        MODEL_PATH = os.path.join(PROJECT_ROOT, "pretrained_models", "Qwen3-TTS-12Hz-1.7B-Base")
     else:
         MODEL_PATH = args.model_path
 
@@ -72,7 +72,7 @@ def main():
         ref_audios.append(item["ref_audio"])
         ref_texts.append(item.get("ref_text", ""))
         texts.append(item["text"])
-        languages.append(item.get("language", "Auto"))
+        languages.append(item.get("language", "Chinese"))
 
     # Common generation kwargs
     common_gen_kwargs = dict(

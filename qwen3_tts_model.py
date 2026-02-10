@@ -17,7 +17,7 @@ import base64
 import io
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import librosa
@@ -119,6 +119,57 @@ class Qwen3TTSModel:
 
         generate_defaults = model.generate_config
         return cls(model=model, processor=processor, generate_defaults=generate_defaults)
+
+    def enable_streaming_optimizations(
+        self,
+        decode_window_frames: int = 80,
+        use_compile: bool = True,
+        use_cuda_graphs: bool = True,
+        compile_mode: str = "reduce-overhead",
+        use_fast_codebook: bool = False,  # Disabled: needs debugging, currently slower
+        compile_codebook_predictor: bool = True,
+    ):
+        """
+        Enable torch.compile and CUDA graphs optimizations for streaming decode.
+
+        Significantly speeds up streaming generation by:
+        1. Compiling the decoder with torch.compile (reduces Python overhead)
+        2. Capturing CUDA graphs for fixed-size decode windows (eliminates GPU launch overhead)
+        3. Fast codebook generation (bypasses HuggingFace generate() overhead)
+
+        Call this method after loading the model, before starting streaming generation.
+
+        Args:
+            decode_window_frames: Fixed window size for streaming (must match the
+                                  decode_window_frames parameter in stream_generate_voice_clone)
+            use_compile: Apply torch.compile to the decoder (default True)
+            use_cuda_graphs: Capture CUDA graphs for the fixed window size (default True)
+            compile_mode: torch.compile mode - "reduce-overhead" (recommended for streaming),
+                          "max-autotune", or "default"
+            use_fast_codebook: Use fast codebook generation that bypasses HuggingFace's
+                               generate() overhead (default True, ~2x faster per step)
+            compile_codebook_predictor: Apply torch.compile to codebook predictor (experimental)
+
+        Returns:
+            self for method chaining
+
+        Example:
+            model = Qwen3TTSModel.from_pretrained("Qwen/Qwen3-TTS-12Hz-1.7B-Base", ...)
+            model.enable_streaming_optimizations(decode_window_frames=80)
+
+            # Now streaming will be faster
+            for chunk, sr in model.stream_generate_voice_clone(..., decode_window_frames=80):
+                ...
+        """
+        self.model.enable_streaming_optimizations(
+            decode_window_frames=decode_window_frames,
+            use_compile=use_compile,
+            use_cuda_graphs=use_cuda_graphs,
+            compile_mode=compile_mode,
+            use_fast_codebook=use_fast_codebook,
+            compile_codebook_predictor=compile_codebook_predictor,
+        )
+        return self
 
     def _supported_languages_set(self) -> Optional[set]:
         langs = getattr(self.model, "get_supported_languages", None)
@@ -398,13 +449,13 @@ class Qwen3TTSModel:
                 - If x_vector_only_mode=False but ref_text is missing.
                 - If batch lengths mismatch.
         """
-        # if self.model.tts_model_type != "base":
-        #     raise ValueError(
-        #         f"model with \ntokenizer_type: {self.model.tokenizer_type}\n"
-        #         f"tts_model_size: {self.model.tts_model_size}\n"
-        #         f"tts_model_type: {self.model.tts_model_type}\n"
-        #         "does not support create_voice_clone_prompt, Please check Model Card or Readme for more details."
-        #     )
+        if self.model.tts_model_type != "base":
+            raise ValueError(
+                f"model with \ntokenizer_type: {self.model.tokenizer_type}\n"
+                f"tts_model_size: {self.model.tts_model_size}\n"
+                f"tts_model_type: {self.model.tts_model_type}\n"
+                "does not support create_voice_clone_prompt, Please check Model Card or Readme for more details."
+            )
         
         ref_audio_list = self._ensure_list(ref_audio)
         ref_text_list = self._ensure_list(ref_text) if isinstance(ref_text, list) else ([ref_text] * len(ref_audio_list))
@@ -632,6 +683,125 @@ class Qwen3TTSModel:
 
         return wavs_out, fs
 
+    @torch.inference_mode()
+    def stream_generate_voice_clone(
+        self,
+        text: str,
+        language: str = None,
+        ref_audio: Optional[AudioLike] = None,
+        ref_text: Optional[str] = None,
+        x_vector_only_mode: bool = False,
+        voice_clone_prompt: Optional[Union[Dict[str, Any], VoiceClonePromptItem]] = None,
+        non_streaming_mode: bool = False,
+        # Streaming control
+        emit_every_frames: int = 8,
+        decode_window_frames: int = 80,
+        overlap_samples: int = 0,
+        max_frames: int = 10000,
+        # Optimization
+        use_optimized_decode: bool = True,
+        **kwargs,
+    ) -> Generator[Tuple[np.ndarray, int], None, None]:
+        """
+        Stream voice clone speech generation, yielding PCM chunks as they are generated.
+
+        NOTE: This method only supports single-sample generation (no batching).
+
+        Args:
+            text: Text to synthesize (single string only).
+            language: Language for synthesis.
+            ref_audio: Reference audio for prompt building (required if voice_clone_prompt not provided).
+            ref_text: Reference text for ICL mode.
+            x_vector_only_mode: If True, only speaker embedding is used.
+            voice_clone_prompt: Pre-built VoiceClonePromptItem from create_voice_clone_prompt.
+            non_streaming_mode: Whether to use non-streaming text input mode.
+            emit_every_frames: Emit PCM chunk every N codec frames.
+            decode_window_frames: Window size for decoding (longer = better quality, more latency).
+            overlap_samples: Overlap samples for crossfade between chunks.
+            max_frames: Maximum codec frames to generate.
+            use_optimized_decode: Use CUDA graph optimized decode when available (default True).
+                                  Call enable_streaming_optimizations() first for best performance.
+            **kwargs: Generation parameters (do_sample, top_k, top_p, temperature, etc.)
+
+        Yields:
+            Tuple[np.ndarray, int]: (pcm_chunk as float32 array, sample_rate)
+        """
+        if self.model.tts_model_type != "base":
+            raise ValueError(
+                f"model with tts_model_type={self.model.tts_model_type} "
+                "does not support stream_generate_voice_clone"
+            )
+
+        if isinstance(text, list):
+            raise ValueError("stream_generate_voice_clone only supports single text, not batch")
+
+        texts = [text]
+        languages = [language if language is not None else "Auto"]
+        self._validate_languages(languages)
+
+        # Build voice clone prompt
+        if voice_clone_prompt is None:
+            if ref_audio is None:
+                raise ValueError("Either voice_clone_prompt or ref_audio must be provided")
+            prompt_items = self.create_voice_clone_prompt(
+                ref_audio=ref_audio,
+                ref_text=ref_text,
+                x_vector_only_mode=x_vector_only_mode
+            )
+            voice_clone_prompt_dict = self._prompt_items_to_voice_clone_prompt(prompt_items)
+            ref_texts_for_ids = [prompt_items[0].ref_text]
+        elif isinstance(voice_clone_prompt, VoiceClonePromptItem):
+            prompt_items = [voice_clone_prompt]
+            voice_clone_prompt_dict = self._prompt_items_to_voice_clone_prompt(prompt_items)
+            ref_texts_for_ids = [voice_clone_prompt.ref_text]
+        elif isinstance(voice_clone_prompt, list):
+            # List of VoiceClonePromptItem
+            prompt_items = voice_clone_prompt
+            voice_clone_prompt_dict = self._prompt_items_to_voice_clone_prompt(prompt_items)
+            ref_texts_for_ids = [prompt_items[0].ref_text]
+        else:
+            # Already a dict
+            voice_clone_prompt_dict = voice_clone_prompt
+            ref_texts_for_ids = None
+
+        input_texts = [self._build_assistant_text(t) for t in texts]
+        input_ids = self._tokenize_texts(input_texts)
+
+        ref_ids = None
+        if ref_texts_for_ids is not None:
+            ref_ids = []
+            for rt in ref_texts_for_ids:
+                if rt is None or rt == "":
+                    ref_ids.append(None)
+                else:
+                    ref_tok = self._tokenize_texts([self._build_ref_text(rt)])[0]
+                    ref_ids.append(ref_tok)
+
+        # Extract streaming params, filter to only supported ones
+        gen_kwargs = self._merge_generate_kwargs(**kwargs)
+        # Only keep params supported by stream_generate_pcm
+        supported_params = {
+            "do_sample", "top_k", "top_p", "temperature",
+            "subtalker_dosample", "subtalker_top_k", "subtalker_top_p", "subtalker_temperature"
+        }
+        gen_kwargs = {k: v for k, v in gen_kwargs.items() if k in supported_params}
+
+        # Call streaming generation
+        for chunk, sr in self.model.stream_generate_pcm(
+            input_ids=input_ids,
+            ref_ids=ref_ids,
+            voice_clone_prompt=voice_clone_prompt_dict,
+            languages=languages,
+            non_streaming_mode=non_streaming_mode,
+            emit_every_frames=emit_every_frames,
+            decode_window_frames=decode_window_frames,
+            overlap_samples=overlap_samples,
+            max_frames=max_frames,
+            use_optimized_decode=use_optimized_decode,
+            **gen_kwargs,
+        ):
+            yield chunk, sr
+
     # voice design model
     @torch.no_grad()
     def generate_voice_design(
@@ -639,7 +809,7 @@ class Qwen3TTSModel:
         text: Union[str, List[str]],
         instruct: Union[str, List[str]],
         language: Union[str, List[str]] = None,
-        non_streaming_mode: bool = True,
+        non_streaming_mode: bool = False,
         **kwargs,
     ) -> Tuple[List[np.ndarray], int]:
         """
@@ -726,7 +896,7 @@ class Qwen3TTSModel:
 
         wavs, fs = self.model.speech_tokenizer.decode([{"audio_codes": c} for c in talker_codes_list])
         return wavs, fs
-   
+
     # custom voice model
     @torch.no_grad()
     def generate_custom_voice(
@@ -735,7 +905,7 @@ class Qwen3TTSModel:
         speaker: Union[str, List[str]],
         language: Union[str, List[str]] = None,
         instruct: Optional[Union[str, List[str]]] = None,
-        non_streaming_mode: bool = True,
+        non_streaming_mode: bool = False,
         **kwargs,
     ) -> Tuple[List[np.ndarray], int]:
         """
@@ -785,13 +955,13 @@ class Qwen3TTSModel:
             ValueError:
                 If any speaker/language is unsupported or batch sizes mismatch.
         """
-        # if self.model.tts_model_type != "custom_voice":
-        #     raise ValueError(
-        #         f"model with \ntokenizer_type: {self.model.tokenizer_type}\n"
-        #         f"tts_model_size: {self.model.tts_model_size}\n"
-        #         f"tts_model_type: {self.model.tts_model_type}\n"
-        #         "does not support generate_custom_voice, Please check Model Card or Readme for more details."
-        #     )
+        if self.model.tts_model_type != "custom_voice":
+            raise ValueError(
+                f"model with \ntokenizer_type: {self.model.tokenizer_type}\n"
+                f"tts_model_size: {self.model.tts_model_size}\n"
+                f"tts_model_type: {self.model.tts_model_type}\n"
+                "does not support generate_custom_voice, Please check Model Card or Readme for more details."
+            )
 
         texts = self._ensure_list(text)
         languages = self._ensure_list(language) if isinstance(language, list) else ([language] * len(texts) if language is not None else ["Auto"] * len(texts))
@@ -837,112 +1007,7 @@ class Qwen3TTSModel:
 
         wavs, fs = self.model.speech_tokenizer.decode([{"audio_codes": c} for c in talker_codes_list])
         return wavs, fs
-    
-    @torch.no_grad()
-    def generate_custom_voice_icl(
-        self,
-        text: Union[str, List[str]],
-        speaker: Union[str, List[str]],
-        language: Union[str, List[str]] = None,
-        instruct: Optional[Union[str, List[str]]] = None,
-        ref_audios: Optional[Union[AudioLike, List[AudioLike]]] = None,  
-        ref_texts: Optional[Union[str, List[Optional[str]]]] = None,     
-        non_streaming_mode: bool = True,
-        **kwargs,
-    ) -> Tuple[List[np.ndarray], int]:
-        """
-        Generate speech using ICL (In-Context Learning) mode with reference audio and text.
-        
-        This function forces ICL mode and requires both ref_audios and ref_texts.
-        
-        Args:
-            text: Text(s) to synthesize.
-            speaker: Speaker name(s).
-            language: Language(s) for each sample.
-            instruct: Optional instruction(s).
-            ref_audios: Reference audio(s) for voice cloning.
-            ref_texts: Reference text(s) corresponding to ref_audios.
-            non_streaming_mode: Whether to use non-streaming mode.
-            **kwargs: Additional generation parameters.
-            
-        Returns:
-            Tuple[List[np.ndarray], int]: (wavs, sample_rate)
-        """
-        # if self.model.tts_model_type != "custom_voice":
-        #     raise ValueError(
-        #         f"model with \ntokenizer_type: {self.model.tokenizer_type}\n"
-        #         f"tts_model_size: {self.model.tts_model_size}\n"
-        #         f"tts_model_type: {self.model.tts_model_type}\n"
-        #         "does not support generate_custom_voice_icl"
-        #     )
 
-        texts = self._ensure_list(text)
-        languages = self._ensure_list(language) if isinstance(language, list) else ([language] * len(texts) if language is not None else ["Auto"] * len(texts))
-        speakers = self._ensure_list(speaker)
-        if self.model.tts_model_size in "0b6": # for 0b6 model, instruct is not supported
-            instruct = None
-        instructs = self._ensure_list(instruct) if isinstance(instruct, list) else ([instruct] * len(texts) if instruct is not None else [""] * len(texts))
-
-        if len(languages) == 1 and len(texts) > 1:
-            languages = languages * len(texts)
-        if len(speakers) == 1 and len(texts) > 1:
-            speakers = speakers * len(texts)
-        if len(instructs) == 1 and len(texts) > 1:
-            instructs = instructs * len(texts)
-
-        if not (len(texts) == len(languages) == len(speakers) == len(instructs)):
-            raise ValueError(
-                f"Batch size mismatch: text={len(texts)}, language={len(languages)}, speaker={len(speakers)}, instruct={len(instructs)}"
-            )
-
-        self._validate_languages(languages)
-        self._validate_speakers(speakers)
-        
-        # 创建 voice_clone_prompt
-        prompt_items = self.create_voice_clone_prompt(
-            ref_audio=ref_audios,      
-            ref_text=ref_texts,        
-            x_vector_only_mode=False   
-        )
-        
-        if len(prompt_items) == 1 and len(texts) > 1:
-            prompt_items = prompt_items * len(texts)
-    
-        voice_clone_prompt_dict = self._prompt_items_to_voice_clone_prompt(prompt_items)
-        ref_texts_for_ids = [it.ref_text for it in prompt_items]
-        
-        # 构造 ref_ids
-        ref_ids = []
-        for rt in ref_texts_for_ids:
-            ref_tok = self._tokenize_texts([self._build_ref_text(rt)])[0]
-            ref_ids.append(ref_tok)
-
-        # [原] 对输入【待合成】的构造assitant格式 -> token
-        input_ids = self._tokenize_texts([self._build_assistant_text(t) for t in texts])
-
-        instruct_ids: List[Optional[torch.Tensor]] = []
-        for ins in instructs:
-            if ins is None or ins == "":
-                instruct_ids.append(None)
-            else:
-                instruct_ids.append(self._tokenize_texts([self._build_instruct_text(ins)])[0])
-
-        gen_kwargs = self._merge_generate_kwargs(**kwargs)
-
-        talker_codes_list, _ = self.model.generate(
-            input_ids=input_ids,
-            ref_ids=ref_ids,
-            voice_clone_prompt=voice_clone_prompt_dict,
-            instruct_ids=instruct_ids,
-            languages=languages,
-            speakers=speakers,
-            non_streaming_mode=non_streaming_mode,
-            **gen_kwargs,
-        )
-
-        wavs, fs = self.model.speech_tokenizer.decode([{"audio_codes": c} for c in talker_codes_list])
-        return wavs, fs
- 
 
     def get_supported_speakers(self) -> Optional[List[str]]:
         """

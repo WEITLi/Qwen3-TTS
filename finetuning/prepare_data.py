@@ -43,7 +43,7 @@ def main():
     for line in total_lines:
 
         batch_lines.append(line)
-        batch_audios.append(line['audio'])
+        batch_audios.append(line['path'])
 
         if len(batch_lines) >= BATCH_INFER_NUM:
             enc_res = tokenizer_12hz.encode(batch_audios)

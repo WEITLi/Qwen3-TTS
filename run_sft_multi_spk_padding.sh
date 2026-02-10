@@ -21,7 +21,7 @@ python finetuning/prepare_data.py \
   --input_jsonl ${RAW_JSONL} \
   --output_jsonl ${TRAIN_JSONL}
 
-python finetuning/sft_multi_spk_12hz.py \
+python finetuning/sft_multi_spk_padding.py \
   --init_model_path ${INIT_MODEL_PATH} \
   --output_model_path ${OUTPUT_DIR} \
   --train_jsonl ${TRAIN_JSONL} \
