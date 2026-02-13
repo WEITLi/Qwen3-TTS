@@ -36,3 +36,15 @@ Train the model with emotion and paralinguistic features using token dropout.
    ```bash
    bash run_sft_multi_spk_dropout.sh
    ```
+
+## Infer
+There are two ways to infer based on sft:
+1. direct use spk embedding:
+   ```bash
+   python infer_jsonl.py
+   ```
+
+2. In-Context Learning via ref_audio & ref_text (unstable currently):
+   ```bash
+   python infer_jsonl_icl.py
+   ```
