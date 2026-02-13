@@ -8,15 +8,15 @@ import os
 def main():
     device = "cuda:0"
     tts = Qwen3TTSModel.from_pretrained(
-        "/data/Projects/Qwen3-TTS/exp/exp_l50/sft_lr1ef6_8spk_full-1.7B/checkpoint-epoch-9",
+        "/data/Projects/Qwen3-TTS/exp/exp_l50/sft_lr2ef6_8spk_full-1.7B-dropout/checkpoint-epoch-10",
         device_map=device,
         dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
     )
     torch.cuda.synchronize()
 
-    jsonl_path = "/data/Projects/Qwen3-TTS/data/test/spoken.自由聊天风格.prompt_True_with_silence.jsonl"
-    output_dir = "./output/sft_1.7B_lr1ef6-e4-plain_prompt_true_icl-silence-3"
+    jsonl_path = "/data/Projects/Qwen3-TTS/data/test/sft_dropout.jsonl"
+    output_dir = "./output/sft_1.7B_lr2ef6-e10-0212"
 
     os.makedirs(output_dir, exist_ok=True)
 

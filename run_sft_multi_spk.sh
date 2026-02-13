@@ -9,7 +9,7 @@ RAW_JSONL="./data/finetune/train_8spk_full.jsonl"
 
 # exp name
 expdir=exp/exp_l50
-expname='sft_lr1ef6_8spk_full-1.7B'
+expname='sft_lr2ef6_8spk_full-1.7B-NewLoss'
 mkdir -p ${expdir}/${expname}
 
 TRAIN_JSONL="./${expdir}/${expname}/train_with_codes.jsonl"
@@ -17,7 +17,7 @@ SPEAKER_EMBEDDINGS="./${expdir}/${expname}/speaker_embeddings.pt"
 OUTPUT_DIR="./${expdir}/${expname}"
 
 BATCH_SIZE=4
-LR=1e-6
+LR=2e-6
 EPOCHS=10
 
 # Step 1: Prepare data (extract audio codes)
